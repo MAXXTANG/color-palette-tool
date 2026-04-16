@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圖片色票提取器 (Color Palette Generator)</title>
+    
+    <!-- 引入 Google Fonts 提升現代感 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- 引入 Tailwind CSS 來快速排版 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Color Thief 套件來提取圖片顏色 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.0/color-thief.umd.js"></script>
+
+    <style>
+        /* 現代深色質感背景與字體 */
+        body { 
+            background: #0f172a; /* 深邃石板黑 */
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(30, 27, 75, 1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(15, 23, 42, 1) 0px, transparent 50%);
+            font-family: 'Inter', sans-serif; 
+            color: #f8fafc;
+        }
+        
+        /* 毛玻璃主卡片 - 深色版 */
+        .glass-card {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+        
+        .upload-zone {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px dashed rgba(148, 163, 184, 0.3);
+            background: rgba(15, 23, 42, 0.4);
+        }
+        .upload-zone:hover {
+            border-color: rgba(148, 163, 184, 0.6);
+            background: rgba(15, 23, 42, 0.7);
+        }
+        .upload-zone.dragover {
+            border-color: #818cf8;
+            background: rgba(67, 56, 202, 0.2);
+            transform: scale(1.02);
+            box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.2);
+        }
+        
+        .color-swatch {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .color-swatch:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 色塊進場動畫 */
+        @keyframes popIn {
+            0% { opacity: 0; transform: translateY(15px) scale(0.95); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Toast 提示訊息動畫 */
+        #toast {
+            visibility: hidden;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            transform: translateY(-30px);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 md:p-8">
+
+    <!-- 主容器 (加上深色毛玻璃特效) -->
+    <div class="glass-card max-w-5xl w-full rounded-[2rem] overflow-hidden flex flex-col md:flex-row transition-all duration-500 hover:shadow-2xl hover:shadow-indigo-900/20">
+        
+        <!-- 左側：圖片上傳與預覽區 -->
+        <div class="w-full md:w-1/2 p-8 md:p-12 border-b md:border-b-0 md:border-r border-white/5 flex flex-col justify-center relative">
+            <!-- 裝飾用背景光暈 (深色高對比) -->
+            <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 rounded-l-[2rem] pointer-events-none">
+                <div class="absolute -top-20 -left-20 w-64 h-64 bg-indigo-600 rounded-full mix-blend-screen filter blur-[100px] opacity-30"></div>
+                <div class="absolute -bottom-20 -right-20 w-64 h-64 bg-purple-600 rounded-full mix-blend-screen filter blur-[100px] opacity-20"></div>
+            </div>
+
+            <div class="mb-8">
+                <h1 class="text-3xl font-extrabold text-white tracking-tight mb-3">🎨 圖片色票提取</h1>
+                <p class="text-slate-400 font-medium">上傳圖片，AI 將自動為您解析出最具代表性的 5 款色彩。</p>
+            </div>
+
+            <!-- 拖曳上傳區 -->
+            <label id="drop-zone" class="upload-zone relative cursor-pointer flex flex-col items-center justify-center rounded-2xl h-72 overflow-hidden group">
+                
+                <!-- 預設上傳提示 -->
+                <div id="upload-prompt" class="flex flex-col items-center justify-center p-6 text-center transform transition-transform group-hover:scale-105">
+                    <div class="w-16 h-16 mb-4 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center group-hover:bg-indigo-900/60 group-hover:border-indigo-500/40 transition-colors shadow-lg">
+                        <svg class="w-8 h-8 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <p class="text-slate-200 font-bold text-lg tracking-wide">點擊上傳 或 拖曳圖片</p>
+                    <p class="text-slate-500 text-sm mt-2 font-medium">支援高品質 PNG, JPG, WEBP</p>
+                </div>
+
+                <!-- 隱藏的檔案輸入框 -->
+                <input type="file" id="file-input" class="hidden" accept="image/png, image/jpeg, image/webp" />
+                
+                <!-- 圖片預覽 -->
+                <img id="image-preview" class="absolute inset-0 w-full h-full object-cover hidden shadow-inner" alt="預覽圖片" />
+                
+                <!-- 預覽時的半透明遮罩 -->
+                <div id="image-overlay" class="absolute inset-0 bg-black/50 hidden opacity-0 transition-opacity group-hover:opacity-100 backdrop-blur-[2px] flex items-center justify-center">
+                    <span class="bg-black/60 border border-white/20 text-white px-5 py-2.5 rounded-full font-bold text-sm shadow-2xl flex items-center gap-2 backdrop-blur-md">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        更換圖片
+                    </span>
+                </div>
+            </label>
+        </div>
+
+        <!-- 右側：色票顯示區 -->
+        <div class="w-full md:w-1/2 p-8 md:p-12 bg-slate-900/40 flex flex-col justify-center z-10 border-l border-white/5">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold text-white">主要代表色</h2>
+                <span class="text-xs font-bold px-3 py-1.5 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 rounded-full shadow-sm">點擊複製 HEX</span>
+            </div>
+            
+            <div id="palette-container" class="space-y-4">
+                <!-- 初始狀態：深色現代感佔位符 -->
+                <div class="flex flex-col items-center justify-center text-slate-500 text-sm py-16 border-2 border-dashed border-slate-700/60 rounded-2xl bg-slate-800/30 shadow-inner">
+                    <svg class="w-12 h-12 mb-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                    <span class="font-medium text-slate-400">等待分析中...</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 現代感 Toast 提示訊息 -->
+    <div id="toast" class="fixed bottom-0 bg-slate-900/95 backdrop-blur-md text-white px-6 py-3.5 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700/50">
+        <div class="bg-green-500/20 p-1 rounded-full">
+            <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+        </div>
+        <span id="toast-message" class="font-semibold tracking-wide">已成功複製色碼！</span>
+    </div>
+
+    <script>
+        // 確保 ColorThief 已載入
+        const colorThief = new ColorThief();
+        
+        // 取得 DOM 元素
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const imagePreview = document.getElementById('image-preview');
+        const uploadPrompt = document.getElementById('upload-prompt');
+        const paletteContainer = document.getElementById('palette-container');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+
+        // 將 RGB 陣列轉換為 HEX 字串 (例如: [255, 87, 51] -> #FF5733)
+        const rgbToHex = (r, g, b) => '#' + [r, g, b].map(x => {
+            const hex = x.toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        }).join('').toUpperCase();
+
+        // 決定文字顏色（根據背景色亮度，太暗的背景用白字，太亮的背景用黑字）
+        const getTextColor = (r, g, b) => {
+            const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+            return (yiq >= 128) ? '#0f172a' : '#ffffff'; // >= 128 亮色配深灰字，< 128 暗色配白字
+        };
+
+        // 處理圖片載入與顏色提取
+        const processImage = (file) => {
+            if (!file || !file.type.startsWith('image/')) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                // 顯示圖片並隱藏上傳提示
+                imagePreview.src = event.target.result;
+                imagePreview.classList.remove('hidden');
+                document.getElementById('image-overlay').classList.remove('hidden');
+                uploadPrompt.classList.add('hidden');
+                
+                // 由於同源政策，建立一個新的 Image 物件來處理分析
+                const imgObj = new Image();
+                imgObj.src = event.target.result;
+                
+                imgObj.onload = () => {
+                    // 提取 5 個主要顏色
+                    try {
+                        const palette = colorThief.getPalette(imgObj, 5);
+                        renderPalette(palette);
+                    } catch (e) {
+                        console.error('顏色提取失敗', e);
+                        paletteContainer.innerHTML = '<div class="text-rose-400 bg-rose-950/40 rounded-2xl font-bold text-center py-8 border border-rose-900/50 shadow-sm">分析失敗，請嘗試顏色更豐富的圖片。</div>';
+                    }
+                };
+            };
+            reader.readAsDataURL(file);
+        };
+
+        // 渲染色票到畫面上
+        const renderPalette = (palette) => {
+            paletteContainer.innerHTML = ''; // 清空現有內容
+
+            palette.forEach((rgb, index) => {
+                const hexColor = rgbToHex(rgb[0], rgb[1], rgb[2]);
+                const textColor = getTextColor(rgb[0], rgb[1], rgb[2]);
+
+                // 建立色塊元素
+                const swatch = document.createElement('div');
+                // 加入現代感樣式與交錯進場動畫
+                swatch.className = 'color-swatch group relative flex items-center justify-between p-5 rounded-2xl cursor-pointer select-none overflow-hidden';
+                swatch.style.backgroundColor = hexColor;
+                swatch.style.color = textColor;
+                swatch.style.animation = `popIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${index * 0.08}s both`;
+                
+                // 色塊內部 HTML (顯示 HEX 與 RGB，加上右側隱藏的複製 Icon)
+                swatch.innerHTML = `
+                    <div class="relative z-10 flex flex-col gap-0.5">
+                        <div class="font-bold text-2xl tracking-widest drop-shadow-sm">${hexColor}</div>
+                        <div class="text-xs font-semibold opacity-80 uppercase tracking-widest">RGB ${rgb[0]}, ${rgb[1]}, ${rgb[2]}</div>
+                    </div>
+                    <div class="relative z-10 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:scale-110 group-hover:-translate-x-2">
+                        <div class="bg-black/10 backdrop-blur-sm p-2.5 rounded-full shadow-inner">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        </div>
+                    </div>
+                `;
+
+                // 點擊複製事件
+                swatch.addEventListener('click', () => {
+                    copyToClipboard(hexColor);
+                });
+
+                paletteContainer.appendChild(swatch);
+            });
+        };
+
+        // 複製文字到剪貼簿功能 (相容 iframe)
+        const copyToClipboard = (text) => {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            // 隱藏 textArea
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            document.body.appendChild(textArea);
+            
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                showToast(`已複製色碼：${text}`);
+            } catch (err) {
+                console.error('複製失敗', err);
+            } finally {
+                document.body.removeChild(textArea);
+            }
+        };
+
+        // 顯示 Toast 提示
+        let toastTimeout;
+        const showToast = (msg) => {
+            toastMessage.textContent = msg;
+            toast.classList.add('show');
+            
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        };
+
+        // --- 事件監聽器設定 ---
+
+        // 1. 點擊上傳檔案
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                processImage(e.target.files[0]);
+            }
+        });
+
+        // 2. 拖曳檔案相關特效
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+        });
+
+        // 3. 放下檔案事件
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length > 0) {
+                processImage(files[0]);
+            }
+        });
+    </script>
+</body>
+</html>
