@@ -41,6 +41,7 @@
 
 ## 📸 畫面預覽
 <img width="1506" height="868" alt="image" src="https://github.com/user-attachments/assets/dc8d2a0c-8cbf-4dca-a9ef-976140d5ee98" />
+<img width="1506" height="868" alt="image" src="https://github.com/MAXXTANG/color-palette-tool/blob/main/color-palette-tool-Sample.png?raw=true" />
 
 <h2 id="-english-version">🇬🇧 English Version</h2>
 
@@ -82,8 +83,5 @@ This is a pure web project that requires no server or build tools (No-build).
     
 3.  Drag and drop an image into it and start using it immediately!
     
-
-## 📸 Screenshot
-<img width="1506" height="868" alt="image" src="https://github.com/user-attachments/assets/dc8d2a0c-8cbf-4dca-a9ef-976140d5ee98" />
 
 *Designed and coded with ❤️*
