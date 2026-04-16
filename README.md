@@ -42,12 +42,11 @@
     
 
 ## 📸 畫面預覽
+<img width="1506" height="868" alt="image" src="https://github.com/user-attachments/assets/dc8d2a0c-8cbf-4dca-a9ef-976140d5ee98" />
 
 <h2 id="-english-version">🇬🇧 English Version</h2>
 
 A lightweight web tool designed for social media managers, designers, and content creators. Simply upload an image, and the system will automatically extract the 5 most representative colors to help you quickly decide on your layout color scheme!
-
-🔗 [**👉 Live Demo Here**](https://github.com/MAXXTANG/color-palette-tool) 
 
 ## ✨ Features
 
@@ -87,5 +86,6 @@ This is a pure web project that requires no server or build tools (No-build).
     
 
 ## 📸 Screenshot
+<img width="1506" height="868" alt="image" src="https://github.com/user-attachments/assets/dc8d2a0c-8cbf-4dca-a9ef-976140d5ee98" />
 
 *Designed and coded with ❤️*
